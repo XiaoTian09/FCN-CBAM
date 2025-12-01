@@ -1,0 +1,3 @@
+We design an attention-augmented Fully Convolutional Network (FCN-CBAM) for downhole microseismic event localization.
+
+'fcn_train.py':  FCN-based localization network. Input: waveform data of size 12×512×3. Output: 144×3×1. 'sgydata.py' is used for data processing, and 'Attention64.py' / 'Attention128.py' define the attention modules. The train1 folder contains 2,000 training samples (size 12×512×3), and 'train1_new.txt' provides the corresponding downhole hypocenter locations. For inquiries, please contact: tianx@ecut.edu.cn
