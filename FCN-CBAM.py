@@ -121,7 +121,7 @@ class FCNloca(object):
         model_checkpoint = ModelCheckpoint('FCN_zhuyili1.hdf5', monitor='val_loss', verbose=1,
                                            save_best_only=True)  # 'FCNloca.hdf5'保存模型的路径；monitor需要监视的�?
         print('Fitting model...')
-        hist = model.fit(wave_train, loca_train, batch_size=4, epochs=2, verbose=1,
+        hist = model.fit(wave_train, loca_train, batch_size=4, epochs=100, verbose=1,
                          shuffle=True, validation_split=0.1,
                          callbacks=[model_checkpoint])  # model.fit返回的就是history类型;history中有很多数据
         # print(hist.history['acc'])
