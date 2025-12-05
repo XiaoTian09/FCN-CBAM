@@ -54,6 +54,31 @@ def read_sgy(sgynam):
     #print("read 1sgy end")
     binsgy.close()
     return nr, nsmp, data;
+def read_npz(npzname):
+    """
+    读取 .npz 文件，返回格式与 read_sgy 一致：
+    nr   -> tuple: (nr,)
+    nsmp -> tuple: (nsmp,)
+    data -> list[list[float]]
+    """
+    try:
+        npz = np.load(npzname)
+    except IOError:
+        print(f"无法打开文件: {npzname}")
+        return 0, 0, []
+
+    data_array = npz["data"]   # shape: (nr, nsmp)
+    nr_val = int(npz["nr"])
+    nsmp_val = int(npz["nsmp"])
+
+    # 转换为和 read_sgy 一样的 list 格式
+    data = data_array.tolist()
+
+    # 保持与你原来 read_sgy 一致的返回类型（tuple）
+    nr = (nr_val,)
+    nsmp = (nsmp_val,)
+
+    return nr, nsmp, data
 #构造位置图像，基于给定的位置和范围参数。
 
 def loca_img_xyz(xr,yr,zr,xyz,r,rtz):
@@ -144,13 +169,15 @@ def load_sgylist_xyz1(sgylist,sgyr=[0,10,1], x=[0.190,0.0035,144],y=[-0.190,0.00
     ydata = []
     for i in range(0, len(lines)):
         line1 = lines[i].strip().split() #strip()表示删除掉数据中的换行符，split（‘’）则是数据中遇到‘ ’ 就隔开。
-        sgynam = sgylist[0]+line1[0].strip() #输出路径
+        name = os.path.splitext(line1[0].strip())[0]
+
+        sgynam = sgylist[0]+name+'.npz' #输出路径
         loca = [float(num) for num in line1[1:4]]
         #print(loca)
         img = loca_img_xyz1(xyz=[loca[0], loca[1], loca[2]],x=x,y=y,z=z, r=r) #构造标签
 
 
-        nr,nsmp,data1 = read_sgy(sgynam)
+        nr,nsmp,data1 = read_npz(sgynam)
     #    print(len(data1))
         if len(data1)<36:
             continue
@@ -215,22 +242,72 @@ def plot_all(data):
         if not os.path.exists(figure_save_path):  #判断目录是否存在
             os.makedirs(figure_save_path) #创建多级目录
         plt.savefig(os.path.join(figure_save_path ,  name_list[i]+'-'+mkfile_time))  #os.path.join（）拼接路径
-if __name__ == '__main__':
-    import scipy.io as sio
+def convert_sgy_folder_to_npz(input_folder="train1", output_folder="train_new"):
+    """
+    遍历 input_folder 下所有 .sgy 文件，
+    使用 read_sgy 读取数据，并将 data 保存为 .npz 到 output_folder。
+    """
+    # 创建输出文件夹
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
 
-    #r = [ [0.190, 0.0035, 108],[3.010, 0.0037, 64]]
-    r = [[-0.200,0.0037,108]]
-   # xyr = [0.190, 0.0035, 128]
-    data,ydata=load_sgylist_xyz1(sgylist=['./output/','test1.txt'],sgyr=[0,3,1], x=[0.190,0.0035,144],y=[-0.190,0.0035,144],z=[3.000, 0.0035, 144],  r=(0.035) ** 2,
-                      shuffle='false', shiftdata=[list(range(-5, 2)), 1])
-    print(data.shape)
-    #arr_3d = ydata.reshape(1, 128, 64)
-    print(ydata.shape)
-    bq = squeeze(ydata)
-    print(bq.shape)
-    for i in range(len(bq)):
-        plt.plot(bq[i,:,1], label=f"Row {i}")  # 绘制第i行
-        plt.show()
+    # 找到所有 .sgy 文件
+    sgy_files = glob.glob(os.path.join(input_folder, "*.sgy"))
+
+    if not sgy_files:
+        print(f"在 {input_folder} 中没有找到 .sgy 文件。")
+        return
+
+    for sgy_path in sgy_files:
+        print(f"正在处理: {sgy_path}")
+
+        nr, nsmp, data = read_sgy(sgy_path)
+        if nr == 0 or nsmp == 0 or len(data) == 0:
+            print(f"读取失败，跳过: {sgy_path}")
+            continue
+
+        # 转成 numpy 数组 (nr, nsmp)
+        data_array = np.array(data, dtype=np.float32)
+
+        # 输出文件名，用原始文件名去掉后缀，加 .npz
+        base_name = os.path.basename(sgy_path)
+        file_stem = os.path.splitext(base_name)[0]
+        out_path = os.path.join(output_folder, file_stem + ".npz")
+
+        # 保存为 .npz 文件
+        # 可以保存一些基本信息，方便后面使用
+        np.savez_compressed(
+            out_path,
+            data=data_array,
+            nr=nr,
+            nsmp=nsmp
+        )
+
+        print(f"已保存为: {out_path}")
+
+    print("全部转换完成！")
+
+
+if __name__ == "__main__":
+    # 根据你的实际路径改一下这两个参数也可以，例如：
+    # convert_sgy_folder_to_npz(r"D:\data\train1", r"D:\data\train_new")
+    convert_sgy_folder_to_npz("train1", "train_new")
+# if __name__ == '__main__':
+#     import scipy.io as sio
+
+   #  #r = [ [0.190, 0.0035, 108],[3.010, 0.0037, 64]]
+   #  r = [[-0.200,0.0037,108]]
+   # # xyr = [0.190, 0.0035, 128]
+   #  data,ydata=load_sgylist_xyz1(sgylist=['./output/','test1.txt'],sgyr=[0,3,1], x=[0.190,0.0035,144],y=[-0.190,0.0035,144],z=[3.000, 0.0035, 144],  r=(0.035) ** 2,
+   #                    shuffle='false', shiftdata=[list(range(-5, 2)), 1])
+   #  print(data.shape)
+   #  #arr_3d = ydata.reshape(1, 128, 64)
+   #  print(ydata.shape)
+   #  bq = squeeze(ydata)
+   #  print(bq.shape)
+   #  for i in range(len(bq)):
+   #      plt.plot(bq[i,:,1], label=f"Row {i}")  # 绘制第i行
+   #      plt.show()
 
 
     #a = ydata((1,:,1,1)
